@@ -1,6 +1,31 @@
 # CarND-Controls-PID
 Self-Driving Car Engineer Nanodegree Program
 
+Marc Ilgen, January 6, 2018
+
+This repo represents my development of a PID controller in C++ for the SDC Term 2 PID controller project. The objective of the projct was to implement a simple PID controller for a car driving around a track and trying to maintain its position in the middle of the road (I assume, or at least to a specified road position as defined in the simulator) as closely as possible.
+
+My implementation consisted of writing code inside the PID.cpp file and (to a lesser extent) the main.cpp file. I found it strange that the PID class did not have a method called something like "computeSteering" since that is the whole purpose of the controller. Later I realized that the "TotalError" method was supposed to be used for that purpose. I believe it is always best to name methods and functions according to what they actually do, and I find "computeSteering" to be a far better and more descriptive name. Therefore, I created a method a "computeSteering" method and called that from the main.cpp file.
+
+A major portion of the effort of this project was to tune the control gains for the PID controller. Typically in control systm design, one has equations of motion that if linear allow one to use a range of analytical control gain design techniques (specifying gain and/or phase margin, use optimal control techniques with a Riccati equation, etc). In this project, it was most effective to simply tune the parameters using the following procedure:
+
+1. Begin by tuning the combination of Kp and Kd. The proportional gain Kp has the effect of causingthe car to oscillate back and forth across the desired trajectory. Using only a Kd term would result in a marginally stable controller in the best of circumstances, and it would be very difficult to get the car to drive very far around the simulated track using just that term. The Kd term responds to the the lateral "velocity" (actually since the delta time in the controller was approximately constant, it was easiest to just absorb this into the Kd and Ki gains and multiply Kd by just the difference between current and previous cross-track errors). The Kd term has a damping and stabilizing effect on the controller, allowing it (in an ideal case with no secular drift) to stabilize quickly on the desired trajectory. So, I used a bit of manual adjustment (also called trial and error or manual gradient descent) to adjust the Kp and Kd parameters until I got near the performance I wanted to see.
+2. Next I started increasing the Ki term. Ki is used to offset any integrated errors (such as secular drift). The downside of a Ki term is that it adds lag to the system which reduces system stabilty. One must be careful in choosing a Ki - too large a value and the controller becomes unstable. So, I gradually increased the Ki term until the overall performance was good.
+3. Next, now that I had a reasobale set of values, I did more tweaking/trial and error runs to adjust the parameters to further improve the performance
+4. Finally, I added a velocity-dependent component to Kd. I theorized that increasing the Kd term at higher velocities would do a better job of damping out cross-track oscillations which are more dangerous at higher velocities. I tunes the magnitude of this final hyperparameter using trial and error and came up with a set of values that led to good performance.
+
+My final set of values were as follow:
+
+* Kp = 0.15
+* Ki = 0.002
+* Kd = 30.0
+* Actual Kd gain used (Kdtmp in the code) was (Kd + 0.2*speed)
+
+The submission includes a video file of the car driving around the track using my PID controller. Note that I bumped the throttle up from 0.3 to 0.5, yielding a top speed of around 50 MPH.
+
+The original README file contents are listed below and provide more information about setting up the project.
+
+
 ---
 
 ## Dependencies

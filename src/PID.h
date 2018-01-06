@@ -10,12 +10,18 @@ public:
   double i_error;
   double d_error;
 
+  int cnt;
+  double avgerr;
+  double maxerr;
+
   /*
   * Coefficients
   */ 
   double Kp;
   double Ki;
   double Kd;
+
+  bool is_first;
 
   /*
   * Constructor
@@ -41,6 +47,16 @@ public:
   * Calculate the total PID error.
   */
   double TotalError();
+
+  double MaximumError();
+
+  int NumSteps();
+
+  /*
+  ** compute steering angle
+  */
+  double computeSteering(double cte, double speed); 
+
 };
 
 #endif /* PID_H */
