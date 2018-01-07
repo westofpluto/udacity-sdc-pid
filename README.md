@@ -21,7 +21,7 @@ d2y/dt2 = -Kp * y
 
 or equivalently:
 
-dy2/dt2 + Kp * y = 0
+d2y/dt2 + Kp * y = 0
 
 Basic knowledge of linear differential equations tells us that the solution to this equation is a linear combination of A sin(w * t) + B cos(w * t) where A and B are found from the initial conditions and w is the oscillation frequency. In any case, the solution tells us that the effect of Kp is to make the CTE oscillate in an undamped manner about the desired trajectory. To fix this we can add a term that is proportional to the derivative of y (the cross track velocity) as follows:
 
