@@ -3,16 +3,64 @@ Self-Driving Car Engineer Nanodegree Program
 
 Marc Ilgen, January 6, 2018
 
-This repo represents my development of a PID controller in C++ for the SDC Term 2 PID controller project. The objective of the projct was to implement a simple PID controller for a car driving around a track and trying to maintain its position in the middle of the road (I assume, or at least to a specified road position as defined in the simulator) as closely as possible.
+This repo represents my development of a PID controller in C++ for the SDC Term 2 PID controller project. The objective of the project was to implement a simple PID controller for a car driving around a track and trying to maintain its position in the middle of the road (I assume, or at least to a specified road position as defined in the simulator) as closely as possible.
 
 My implementation consisted of writing code inside the PID.cpp file and (to a lesser extent) the main.cpp file. I found it strange that the PID class did not have a method called something like "computeSteering" since that is the whole purpose of the controller. Later I realized that the "TotalError" method was supposed to be used for that purpose. I believe it is always best to name methods and functions according to what they actually do, and I find "computeSteering" to be a far better and more descriptive name. Therefore, I created a method a "computeSteering" method and called that from the main.cpp file.
 
+### Effects of Gains Kp, Kd, Ki
+
+The lateral dynamics of a vehicle are best understood by approximating them as a second order differential equation of the form 
+
+(d2y/dt2) = a 
+
+where a is the lateral acceleration which is the control input. Here I ignore the vehicle mass (or assume it is in a set of units where mass=1). In the case of a bicycle model, the lateral acceleration is V sin(thetac) where V is the (assumed constant) forward velocity and thetac is the steering angle. For small angles sin(thetac) is approximately equal to thetac, so the control term "a" is linearly proportional to thetac. 
+
+The objective of a PID controller is to drive the cross-track error (y in our equation above) to zero. Our first step is to use a control acceleration that is proportional to the CTE (y), so:
+
+d2y/dt2 = -Kp * y
+
+or equivalently:
+
+dy2/dt2 + Kp * y = 0
+
+Basic knowledge of linear differential equations tells us that the solution to this equation is a linear combination of A sin(w * t) + B cos(w * t) where A and B are found from the initial conditions and w is the oscillation frequency. In any case, the solution tells us that the effect of Kp is to make the CTE oscillate in an undamped manner about the desired trajectory. To fix this we can add a term that is proportional to the derivative of y (the cross track velocity) as follows:
+
+d2y/dt2 + Kd * dy/dt + Kp * y =0
+
+Again, basic knowledge of linear differential equations tells us that the solution to this is a damped oscillation where the amplitudes of the sin and cos terms decay to zero. Thus the Kd gain has the effect of damping these oscillations and driving the CTE to zero as desired. In other words the gain Kd adds stability to the system so that any initial CTE is eventually driven to zero. Note that in our discrete system, we use Kd to multiply the CTE difference from one time step to the next, ie CTE(k) - CTE(k-1) rather than computing the actual time derivative.
+
+The only remaining issue is that our simple linear model may not capture our dynamics completely accurately and there may be long term secular drift in the actual vehicle when compared to these idealized equations. To solve this problem we add an integral term to our controller:
+
+d2y/dt2 + Kd * dy/dt + Kp * y + ki * integral(y) = 0
+
+What this does is to turn our second order dynamics into a third order set of dynamics (y, dy/dt, and integral(y)). The addition of the integral term has positives and negatives: the positive is that Ki has the effect of allowing the controller to reduce any integrated errors that build up over time, which is particularly effective at offseting the effects of secular drift and/or other modeling errors. The downside of adding an integral term is that it adds lag to the system which is a destablizing influence on the system. Therefore the Ki gain must be chosen carefully (not too large) or the effect is to destablize the system and drive the car off the road.
+
+Note that for our discrete controller, we use the summed CTE rather than the integrated CTE.
+
+In summary, the final canonical PID controller has the form:
+
+steering angle(k) = -Kp * y(k) - Kd * (y(k)-y(k-1)) - Ki * sum(0,k,y)
+
+Where sum(0,k,y) is the sum of all y values from step 0 to current step k.
+
+I also note below that my final controller added a velocity dependence to Kd of the form:
+
+Kdtmp = Kd + alpha * velocity
+
+I found experimentally that this improved performance when using alpha = 0.2.
+
+The following video explains the PID control gain effects for a vehicle in simple detail:
+
+https://www.youtube.com/watch?v=4Y7zG48uHRo
+
+### Control Gain Kp, Kd, Ki Tuning
+
 A major portion of the effort of this project was to tune the control gains for the PID controller. Typically in control systm design, one has equations of motion that if linear allow one to use a range of analytical control gain design techniques (specifying gain and/or phase margin, use optimal control techniques with a Riccati equation, etc). In this project, it was most effective to simply tune the parameters using the following procedure:
 
-1. Begin by tuning the combination of Kp and Kd. The proportional gain Kp has the effect of causingthe car to oscillate back and forth across the desired trajectory. Using only a Kd term would result in a marginally stable controller in the best of circumstances, and it would be very difficult to get the car to drive very far around the simulated track using just that term. The Kd term responds to the the lateral "velocity" (actually since the delta time in the controller was approximately constant, it was easiest to just absorb this into the Kd and Ki gains and multiply Kd by just the difference between current and previous cross-track errors). The Kd term has a damping and stabilizing effect on the controller, allowing it (in an ideal case with no secular drift) to stabilize quickly on the desired trajectory. So, I used a bit of manual adjustment (also called trial and error or manual gradient descent) to adjust the Kp and Kd parameters until I got near the performance I wanted to see.
+1. Begin by tuning the combination of Kp and Kd. As discussed above, the proportional gain Kp has the effect of causing the car to oscillate back and forth across the desired trajectory. Using only a Kd term would result in a marginally stable controller in the best of circumstances, and it would be very difficult to get the car to drive very far around the simulated track using just that term. The Kd term responds to the the lateral "velocity" (actually since the delta time in the controller was approximately constant, it was easiest to just absorb this into the Kd and Ki gains and multiply Kd by just the difference between current and previous cross-track errors). The Kd term has a damping and stabilizing effect on the controller, allowing it (in an ideal case with no secular drift) to stabilize quickly on the desired trajectory. So, I used a bit of manual adjustment (also called trial and error or manual gradient descent) to adjust the Kp and Kd parameters until I got near the performance I wanted to see.
 2. Next I started increasing the Ki term. Ki is used to offset any integrated errors (such as secular drift). The downside of a Ki term is that it adds lag to the system which reduces system stabilty. One must be careful in choosing a Ki - too large a value and the controller becomes unstable. So, I gradually increased the Ki term until the overall performance was good.
-3. Next, now that I had a reasobale set of values, I did more tweaking/trial and error runs to adjust the parameters to further improve the performance
-4. Finally, I added a velocity-dependent component to Kd. I theorized that increasing the Kd term at higher velocities would do a better job of damping out cross-track oscillations which are more dangerous at higher velocities. I tunes the magnitude of this final hyperparameter using trial and error and came up with a set of values that led to good performance.
+3. Next, now that I had a reasonable set of values, I did more tweaking/trial and error runs to adjust the parameters to further improve the performance.
+4. Finally, I added a velocity-dependent component to Kd. I theorized that increasing the Kd term at higher velocities would do a better job of damping out cross-track oscillations which are more dangerous at higher velocities. I tuned the magnitude of this final hyperparameter (alpha) using trial and error and came up with a set of values that led to good performance.
 
 My final set of values were as follow:
 
